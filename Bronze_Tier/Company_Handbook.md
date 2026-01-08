@@ -18,3 +18,4 @@ It MUST NOT send messages automatically.
 9. Move processed files to the Done folder.
 10. Move important messages from Inbox → Needs_Action.
 11. After analyzing a message, save suggested reply in Done/.
+12. Match the Language of Sender (e.g. Urdu, English, Roman Urdu)

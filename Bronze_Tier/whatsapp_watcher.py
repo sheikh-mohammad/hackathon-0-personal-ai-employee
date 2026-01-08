@@ -31,9 +31,28 @@ class WhatsAppWatcher(BaseWatcher):
                 # This assumes you have a Playwright MCP server running with the browser extension
                 try:
                     # Attempt to connect to an existing browser (requires MCP server setup)
-                    browser = p.chromium.connect_over_cdp("ws://127.0.0.1:9222")  # Default Chrome DevTools Protocol endpoint
+                    # Try common CDP endpoints where Chrome typically runs
+                    cdp_endpoints = [
+                        "ws://127.0.0.1:9222",  # Default Chrome DevTools Protocol endpoint
+                        "http://127.0.0.1:9222",  # Alternative format
+                    ]
+
+                    browser = None
+                    for endpoint in cdp_endpoints:
+                        try:
+                            browser = p.chromium.connect_over_cdp(endpoint)
+                            self.logger.info(f"Successfully connected to browser at {endpoint}")
+                            break
+                        except Exception as e:
+                            self.logger.debug(f"Failed to connect to {endpoint}: {e}")
+                            continue
+
+                    if browser is None:
+                        raise Exception("Could not connect to any CDP endpoint")
+
                     # Get the first available context or create a new one
                     if browser.contexts:
+                        # Look for an existing context that might have WhatsApp already loaded
                         context = browser.contexts[0]
                     else:
                         # Create a new context if none exists
@@ -41,13 +60,19 @@ class WhatsAppWatcher(BaseWatcher):
                             viewport={'width': 1280, 'height': 800}
                         )
                     used_fallback = False  # Did not use fallback
-                except:
+                except Exception as e:
                     # Fallback: launch a new persistent context if MCP connection fails
-                    self.logger.info("MCP connection failed, falling back to persistent context")
+                    self.logger.info(f"MCP connection failed ({e}), falling back to persistent context")
                     browser = p.chromium.launch_persistent_context(
                         self.whatsapp_session_dir,  # Use the WhatsApp session directory to maintain login
                         headless=False,  # Set to False so user can see and authenticate if needed
-                        viewport={'width': 1280, 'height': 800}
+                        viewport={'width': 1280, 'height': 800},
+                        # Additional args to ensure WhatsApp session is preserved
+                        args=[
+                            '--disable-web-security',
+                            '--disable-features=VizDisplayCompositor',
+                            '--no-sandbox',
+                        ]
                     )
                     context = browser
                     used_fallback = True  # Used fallback
@@ -61,13 +86,26 @@ class WhatsAppWatcher(BaseWatcher):
                 # Navigate to WhatsApp Web
                 page.goto('https://web.whatsapp.com')
 
-                # Wait for WhatsApp to load and user to authenticate
+                # Wait for WhatsApp to load and check if user is already authenticated
                 try:
-                    # Wait for QR code to disappear and chat list to appear
+                    # Wait for page to load
                     page.wait_for_load_state('networkidle')
+
+                    # Check if QR code is present (indicating user needs to log in)
+                    qr_selector = 'canvas, [data-ref], div[data-animate-new-messages="false"]'
+                    try:
+                        qr_element = page.wait_for_selector(qr_selector, timeout=5000)
+                        # QR code is present, user needs to scan - this is an issue for automated checking
+                        self.logger.warning("QR code detected - user needs to authenticate manually")
+                        # Wait a bit longer in case authentication happens during this session
+                        page.wait_for_timeout(10000)
+                    except:
+                        # No QR code found, user is likely already logged in
+                        self.logger.info("No QR code detected - user appears to be logged in")
+
                     # Wait for the main chat list container
-                    page.wait_for_selector('div[aria-label="Chat list"]', timeout=30000)
-                    self.logger.info("WhatsApp Web loaded successfully")
+                    page.wait_for_selector('div[aria-label="Chat list"]', timeout=15000)
+                    self.logger.info("WhatsApp Web loaded successfully with authenticated session")
                 except:
                     self.logger.warning("WhatsApp Web may still be loading or authentication required")
                     # Wait a bit more for manual authentication if needed
@@ -142,7 +180,14 @@ class WhatsAppWatcher(BaseWatcher):
                 # Close browser only if we used the fallback persistent context method
                 # Don't close if we connected via CDP to an existing browser
                 if 'used_fallback' in locals() and used_fallback:
-                    browser.close()
+                    try:
+                        browser.close()
+                        self.logger.info("Closed persistent browser context")
+                    except Exception as e:
+                        self.logger.error(f"Error closing browser: {e}")
+                else:
+                    # When using CDP connection, don't close the browser as it's managed externally
+                    self.logger.info("Connected via CDP - not closing external browser")
 
         except Exception as e:
             self.logger.error(f"Error checking for WhatsApp updates: {e}")

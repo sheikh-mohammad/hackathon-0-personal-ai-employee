@@ -6,15 +6,19 @@ import json
 import subprocess
 from datetime import datetime
 import logging
+import time
 
 
-class WhatsAppWatcher(BaseWatcher):
+class WhatsAppWatcher:
     def __init__(self, vault_path: str, session_path: str):
-        super().__init__(vault_path, check_interval=30)
+        self.vault_path = Path(vault_path)
+        self.check_interval = 30  # seconds
         self.session_path = Path(session_path)
         self.inbox_path = Path(vault_path) / 'Inbox'
         self.inbox_path.mkdir(exist_ok=True)
         self.processed_messages = set()
+        self.browser = None
+        self.page = None
 
         # Set up logging
         logging.basicConfig(level=logging.INFO)
@@ -23,89 +27,118 @@ class WhatsAppWatcher(BaseWatcher):
         # Keywords that indicate important messages
         self.keywords = ['urgent', 'asap', 'invoice', 'payment', 'help', 'emergency', 'critical']
 
-    def check_for_updates(self) -> list:
-        """Check WhatsApp Web for new unread messages"""
+    def start_browser(self):
+        """Start the persistent browser context"""
+        self.playwright = sync_playwright().start()
+        self.browser = self.playwright.chromium.launch_persistent_context(
+            str(self.session_path),
+            headless=False,  # Changed to False to keep browser visible
+            viewport={'width': 1366, 'height': 768}
+        )
+
+        # Get or create a page
+        self.page = self.browser.pages[0] if self.browser.pages else self.browser.new_page()
+
+        # Navigate to WhatsApp Web
+        self.page.goto('https://web.whatsapp.com', wait_until='networkidle')
+
+        # Wait for WhatsApp to load
+        try:
+            self.page.wait_for_selector('[data-testid="chat-list"]', timeout=15000)
+        except:
+            # If chat list doesn't load, check if we're not logged in
+            if self.page.query_selector('canvas') or self.page.query_selector('div[data-ref]'):
+                self.logger.info("Please scan the QR code to log in to WhatsApp Web")
+                input("Press Enter after scanning the QR code...")
+                self.page.wait_for_selector('[data-testid="chat-list"]', timeout=15000)
+
+        self.logger.info("WhatsApp Web loaded successfully. Browser will remain open for continuous monitoring.")
+
+        # Process any existing unread messages on startup
+        self.logger.info("Checking for existing unread messages...")
+        initial_messages = self.check_for_updates(initial_check=True)
+        for item in initial_messages:
+            self.create_action_file(item)
+        if initial_messages:
+            self.logger.info(f"Processed {len(initial_messages)} existing unread messages on startup.")
+        else:
+            self.logger.info("No existing unread messages found.")
+
+    def check_for_updates(self, initial_check=False) -> list:
+        """Check WhatsApp Web for new unread messages with persistent browser"""
         messages = []
 
-        with sync_playwright() as p:
-            try:
-                browser = p.chromium.launch_persistent_context(
-                    str(self.session_path),
-                    headless=True,
-                    viewport={'width': 1366, 'height': 768}
-                )
+        if not self.page:
+            self.logger.error("Browser page not available")
+            return messages
 
-                page = browser.pages[0] if browser.pages else browser.new_page()
+        try:
+            # Find all chat items
+            chat_items = self.page.query_selector_all('[data-testid="conversation"]')
 
-                # Navigate to WhatsApp Web
-                page.goto('https://web.whatsapp.com', wait_until='networkidle')
-
-                # Wait for WhatsApp to load
+            for chat_item in chat_items:
                 try:
-                    page.wait_for_selector('[data-testid="chat-list"]', timeout=15000)
-                except:
-                    # If chat list doesn't load, check if we're not logged in
-                    if page.query_selector('canvas') or page.query_selector('div[data-ref]'):
-                        self.logger.info("Please scan the QR code to log in to WhatsApp Web")
-                        input("Press Enter after scanning the QR code...")
-                        page.wait_for_selector('[data-testid="chat-list"]', timeout=15000)
+                    # Check if chat has unread messages
+                    unread_indicator = chat_item.query_selector('[data-testid="unread-count"]')
+                    if unread_indicator:
+                        # Get chat name
+                        chat_name_elem = chat_item.query_selector('[title]') or chat_item.query_selector('div')
+                        chat_name = chat_name_elem.get_attribute('title') or chat_name_elem.inner_text().strip() if chat_name_elem else "Unknown"
 
-                # Find all chat items
-                chat_items = page.query_selector_all('[data-testid="conversation"]')
+                        # Click on the chat to view messages
+                        chat_item.click()
 
-                for chat_item in chat_items:
-                    try:
-                        # Check if chat has unread messages
-                        unread_indicator = chat_item.query_selector('[data-testid="unread-count"]')
-                        if unread_indicator:
-                            # Get chat name
-                            chat_name_elem = chat_item.query_selector('[title]') or chat_item.query_selector('div')
-                            chat_name = chat_name_elem.get_attribute('title') or chat_name_elem.inner_text().strip() if chat_name_elem else "Unknown"
+                        # Wait for messages to load
+                        self.page.wait_for_selector('[data-testid="msg-container"]', timeout=5000)
 
-                            # Click on the chat to view messages
-                            chat_item.click()
+                        # Get all message bubbles in the chat
+                        message_bubbles = self.page.query_selector_all('[data-testid="msg"]')
 
-                            # Wait for messages to load
-                            page.wait_for_selector('[data-testid="msg-container"]', timeout=5000)
+                        for msg_bubble in message_bubbles:
+                            # Check if message is from contact (not from me)
+                            if msg_bubble.query_selector('[data-pre-plain-text]'):
+                                sender_info = msg_bubble.get_attribute('data-pre-plain-text') or ""
 
-                            # Get all message bubbles in the chat
-                            message_bubbles = page.query_selector_all('[data-testid="msg"]')
+                                # Extract message text
+                                message_text_elem = msg_bubble.query_selector('span[dir="ltr"]')
+                                if message_text_elem:
+                                    message_text = message_text_elem.inner_text().strip()
 
-                            for msg_bubble in message_bubbles:
-                                # Check if message is from contact (not from me)
-                                if msg_bubble.query_selector('[data-pre-plain-text]'):
-                                    sender_info = msg_bubble.get_attribute('data-pre-plain-text') or ""
+                                    # Check if this message was already processed
+                                    message_id = f"{chat_name}_{message_text[:50]}_{len(message_text)}"
+                                    # For initial check, don't check if already processed to capture all unread messages
+                                    should_process = True
+                                    if not initial_check:
+                                        should_process = message_id not in self.processed_messages
 
-                                    # Extract message text
-                                    message_text_elem = msg_bubble.query_selector('span[dir="ltr"]')
-                                    if message_text_elem:
-                                        message_text = message_text_elem.inner_text().strip()
+                                    if should_process:
+                                        # Check if message contains important keywords
+                                        is_important = any(kw in message_text.lower() for kw in self.keywords)
 
-                                        # Check if this message was already processed
-                                        message_id = f"{chat_name}_{message_text[:50]}_{len(message_text)}"
-                                        if message_id not in self.processed_messages:
-                                            # Check if message contains important keywords
-                                            is_important = any(kw in message_text.lower() for kw in self.keywords)
+                                        message_data = {
+                                            'chat_name': chat_name,
+                                            'message_text': message_text,
+                                            'sender_info': sender_info,
+                                            'is_important': is_important,
+                                            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                                        }
 
-                                            message_data = {
-                                                'chat_name': chat_name,
-                                                'message_text': message_text,
-                                                'sender_info': sender_info,
-                                                'is_important': is_important,
-                                                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                                            }
-
-                                            messages.append(message_data)
+                                        messages.append(message_data)
+                                        # Only add to processed set if not initial check
+                                        if not initial_check:
                                             self.processed_messages.add(message_id)
 
-                    except Exception as e:
-                        self.logger.error(f"Error processing chat: {e}")
-                        continue
+                except Exception as e:
+                    self.logger.error(f"Error processing chat: {e}")
+                    continue
 
-                browser.close()
-
-            except Exception as e:
-                self.logger.error(f"Browser error: {e}")
+        except Exception as e:
+            self.logger.error(f"Error during message checking: {e}")
+            # Browser might have closed, try to restart
+            try:
+                self.start_browser()
+            except Exception as restart_error:
+                self.logger.error(f"Failed to restart browser: {restart_error}")
 
         return messages
 
@@ -153,6 +186,41 @@ priority: {'high' if item['is_important'] else 'unknown'}
             self.logger.error(f"Exception executing 'ccr code': {e}")
 
         return filepath
+
+    def run(self):
+        """Main run loop that keeps the browser open continuously"""
+        self.logger.info("Starting WhatsApp Watcher with persistent browser...")
+
+        # Start the browser
+        self.start_browser()
+
+        self.logger.info(f"Started monitoring WhatsApp. Checking for new messages every {self.check_interval} seconds. Browser will remain open.")
+
+        while True:
+            try:
+                items = self.check_for_updates(initial_check=False)
+                for item in items:
+                    self.create_action_file(item)
+
+                # Wait for the check interval before next check
+                time.sleep(self.check_interval)
+
+            except KeyboardInterrupt:
+                self.logger.info("Stopping WhatsApp Watcher...")
+                break
+            except Exception as e:
+                self.logger.error(f"Error in main loop: {e}")
+                time.sleep(self.check_interval)  # Wait before retrying
+
+        # Cleanup when exiting
+        self.cleanup()
+
+    def cleanup(self):
+        """Clean up resources"""
+        if self.browser:
+            self.browser.close()
+        if hasattr(self, 'playwright'):
+            self.playwright.stop()
 
 
 def main():

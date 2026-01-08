@@ -32,6 +32,8 @@ Bronze_Tier/
 
 ---
 
+Start the following below Operating Workflow when user says "Start"
+
 ## Your Operating Workflow
 
 ### Step 1: Monitor Inbox

@@ -27,28 +27,39 @@ class WhatsAppWatcher(BaseWatcher):
         messages = []
         try:
             with sync_playwright() as p:
-                # Prepare browser arguments
-                args = [
-                    '--disable-web-security',
-                    '--disable-features=VizDisplayCompositor',
-                    '--no-sandbox'
-                ]
+                # Connect to an existing browser instance via Playwright MCP
+                # This assumes you have a Playwright MCP server running with the browser extension
+                try:
+                    # Attempt to connect to an existing browser (requires MCP server setup)
+                    browser = p.chromium.connect_over_cdp("ws://127.0.0.1:9222")  # Default Chrome DevTools Protocol endpoint
+                    # Get the first available context or create a new one
+                    if browser.contexts:
+                        context = browser.contexts[0]
+                    else:
+                        # Create a new context if none exists
+                        context = browser.new_context(
+                            viewport={'width': 1280, 'height': 800}
+                        )
+                except:
+                    # Fallback: launch a new persistent context if MCP connection fails
+                    self.logger.info("MCP connection failed, falling back to persistent context")
+                    browser = p.chromium.launch_persistent_context(
+                        self.whatsapp_session_dir,  # Use the WhatsApp session directory to maintain login
+                        headless=False,  # Set to False so user can see and authenticate if needed
+                        viewport={'width': 1280, 'height': 800}
+                    )
+                    context = browser
 
-                # Launch with WhatsApp session directory to persist WhatsApp login
-                browser = p.chromium.launch_persistent_context(
-                    self.whatsapp_session_dir,  # Use the WhatsApp session directory to maintain login
-                    headless=False,  # Set to False so user can see and authenticate if needed
-                    viewport={'width': 1280, 'height': 800},
-                    args=args
-                )
-
-                page = browser.pages[0]
+                # Get or create a new page
+                if context.pages:
+                    page = context.pages[0]
+                else:
+                    page = context.new_page()
 
                 # Navigate to WhatsApp Web
                 page.goto('https://web.whatsapp.com')
 
                 # Wait for WhatsApp to load and user to authenticate
-                # First wait for the main app container
                 try:
                     # Wait for QR code to disappear and chat list to appear
                     page.wait_for_load_state('networkidle')
@@ -126,7 +137,9 @@ class WhatsAppWatcher(BaseWatcher):
                             self.logger.error(f"Error processing unread chat: {e}")
                             continue
 
-                browser.close()
+                # Only close the page if we created a new context (not for connected browsers)
+                if not hasattr(browser, 'ws_endpoint'):  # Only close if not connected over CDP
+                    browser.close()
 
         except Exception as e:
             self.logger.error(f"Error checking for WhatsApp updates: {e}")

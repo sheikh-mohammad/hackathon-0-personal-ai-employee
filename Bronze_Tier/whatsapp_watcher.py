@@ -40,6 +40,7 @@ class WhatsAppWatcher(BaseWatcher):
                         context = browser.new_context(
                             viewport={'width': 1280, 'height': 800}
                         )
+                    used_fallback = False  # Did not use fallback
                 except:
                     # Fallback: launch a new persistent context if MCP connection fails
                     self.logger.info("MCP connection failed, falling back to persistent context")
@@ -49,6 +50,7 @@ class WhatsAppWatcher(BaseWatcher):
                         viewport={'width': 1280, 'height': 800}
                     )
                     context = browser
+                    used_fallback = True  # Used fallback
 
                 # Get or create a new page
                 if context.pages:
@@ -137,8 +139,9 @@ class WhatsAppWatcher(BaseWatcher):
                             self.logger.error(f"Error processing unread chat: {e}")
                             continue
 
-                # Only close the page if we created a new context (not for connected browsers)
-                if not hasattr(browser, 'ws_endpoint'):  # Only close if not connected over CDP
+                # Close browser only if we used the fallback persistent context method
+                # Don't close if we connected via CDP to an existing browser
+                if 'used_fallback' in locals() and used_fallback:
                     browser.close()
 
         except Exception as e:

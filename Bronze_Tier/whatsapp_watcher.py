@@ -17,16 +17,19 @@ class WhatsAppWatcher(BaseWatcher):
 
         # Path to your Chrome Default profile
         self.chrome_profile_path = r"C:\Users\Sheikh Mohammad\AppData\Local\Google\Chrome\User Data\Default"
+        # Path to your Chrome executable
+        self.chrome_executable = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 
     def check_for_updates(self) -> list:
         messages = []
         try:
             with sync_playwright() as p:
-                # Launch Chrome using your Default profile
+                # Launch real Chrome using your profile
                 browser = p.chromium.launch_persistent_context(
                     user_data_dir=self.chrome_profile_path,
                     headless=False,
                     viewport={'width': 1280, 'height': 800},
+                    executable_path=self.chrome_executable,  # Real Chrome executable
                     args=[
                         '--disable-web-security',
                         '--disable-features=VizDisplayCompositor',

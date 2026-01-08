@@ -9,9 +9,9 @@ import logging
 
 
 class WhatsAppWatcher(BaseWatcher):
-    def __init__(self, vault_path: str, chrome_user_data_dir: str | None = None, check_interval: int = 30):
+    def __init__(self, vault_path: str, whatsapp_session_dir: str = './whatsapp_session', check_interval: int = 30):
         super().__init__(vault_path, check_interval)
-        self.chrome_user_data_dir = Path(chrome_user_data_dir) if chrome_user_data_dir else None
+        self.whatsapp_session_dir = Path(whatsapp_session_dir)  # Directory to store WhatsApp-specific session data
         self.inbox = self.vault_path / 'Inbox'
         self.inbox.mkdir(exist_ok=True)  # Create Inbox directory if it doesn't exist
         self.keywords = ['urgent', 'asap', 'invoice', 'payment', 'help', 'emergency', 'critical', 'problem', 'issue']
@@ -34,23 +34,13 @@ class WhatsAppWatcher(BaseWatcher):
                     '--no-sandbox'
                 ]
 
-                # Launch with existing profile if user data dir is specified
-                if self.chrome_user_data_dir:
-                    # Launch with existing Chrome profile - pass user data dir directly as first parameter
-                    browser = p.chromium.launch_persistent_context(
-                        self.chrome_user_data_dir,  # Pass user data dir directly as the first parameter
-                        headless=False,  # Set to False so user can see and authenticate if needed
-                        viewport={'width': 1280, 'height': 800},
-                        args=args
-                    )
-                else:
-                    # Fallback to the original method if no user data dir specified
-                    browser = p.chromium.launch_persistent_context(
-                        './whatsapp_session',  # Use a default session dir
-                        headless=False,  # Set to False so user can see and authenticate if needed
-                        viewport={'width': 1280, 'height': 800},
-                        args=args
-                    )
+                # Launch with WhatsApp session directory to persist WhatsApp login
+                browser = p.chromium.launch_persistent_context(
+                    self.whatsapp_session_dir,  # Use the WhatsApp session directory to maintain login
+                    headless=False,  # Set to False so user can see and authenticate if needed
+                    viewport={'width': 1280, 'height': 800},
+                    args=args
+                )
 
                 page = browser.pages[0]
 
@@ -217,15 +207,15 @@ def main():
     import sys
 
     if len(sys.argv) < 2 or len(sys.argv) > 3:
-        print("Usage: python whatsapp_watcher.py <vault_path> [chrome_user_data_dir]")
-        print("Example 1: python whatsapp_watcher.py ./                    # Use default session")
-        print("Example 2: python whatsapp_watcher.py ./ \"C:/Users/YourName/AppData/Local/Google/Chrome/User Data\"  # Use existing Chrome profile")
+        print("Usage: python whatsapp_watcher.py <vault_path> [whatsapp_session_dir]")
+        print("Example 1: python whatsapp_watcher.py ./                    # Use default session directory")
+        print("Example 2: python whatsapp_watcher.py ./ ./my_whatsapp_session  # Use specific session directory")
         sys.exit(1)
 
     vault_path = sys.argv[1]
-    chrome_user_data_dir = sys.argv[2] if len(sys.argv) == 3 else None
+    whatsapp_session_dir = sys.argv[2] if len(sys.argv) == 3 else './whatsapp_session'
 
-    watcher = WhatsAppWatcher(vault_path, chrome_user_data_dir)
+    watcher = WhatsAppWatcher(vault_path, whatsapp_session_dir)
     watcher.run()
 
 

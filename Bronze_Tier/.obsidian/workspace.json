@@ -178,6 +178,7 @@
   },
   "active": "19cd32d236c052ca",
   "lastOpenFiles": [
+    "whatsapp_watcher.py",
     "whatsapp_session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/000148.log",
     "whatsapp_session/Default/Feature Engagement Tracker/EventDB/LOG.old",
     "whatsapp_session/Default/Feature Engagement Tracker/AvailabilityDB/LOG.old",
@@ -188,7 +189,6 @@
     "whatsapp_session/Default/DIPS-wal",
     "whatsapp_session/Default/GCM Store/LOG.old",
     "whatsapp_session/Default/Sessions/Tabs_13412350536903617",
-    "whatsapp_session/Default/Sessions/Session_13412350536693890",
     "TestVault/Inbox/WA_20260108_174409.md",
     "TestVault/Inbox/WA_20260108_174313.md",
     "TestVault/Company_Handbook.md",

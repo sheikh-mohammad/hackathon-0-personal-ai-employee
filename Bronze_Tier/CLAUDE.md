@@ -17,7 +17,7 @@ You are an AI Employee operating as a **WhatsApp Message Analyzer** at Bronze ti
 ## Project Structure
 
 ```
-WhatsApp_AI_Employee/
+Bronze_Tier/
 ├── CLAUDE.md                    # This file - your operating instructions
 ├── Dashboard.md                 # Status dashboard (you update this)
 ├── Company_Handbook.md          # Rules and guidelines you must follow

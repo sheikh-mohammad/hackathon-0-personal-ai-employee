@@ -31,7 +31,8 @@ class WhatsAppWatcher(BaseWatcher):
                 browser = p.chromium.launch_persistent_context(
                     self.session_path,
                     headless=False,  # Set to False so user can see and authenticate if needed
-                    viewport={'width': 1280, 'height': 800}
+                    viewport={'width': 1280, 'height': 800},
+                    args=['--disable-web-security', '--disable-features=VizDisplayCompositor']  # Additional args that might help
                 )
                 page = browser.pages[0]
 
@@ -39,36 +40,53 @@ class WhatsAppWatcher(BaseWatcher):
                 page.goto('https://web.whatsapp.com')
 
                 # Wait for WhatsApp to load and user to authenticate
+                # First wait for the main app container
                 try:
-                    page.wait_for_selector('[data-testid="chat-list"]', timeout=30000)  # Wait up to 30 seconds
+                    # Wait for QR code to disappear and chat list to appear
+                    page.wait_for_load_state('networkidle')
+                    # Wait for the main chat list container
+                    page.wait_for_selector('div[aria-label="Chat list"]', timeout=30000)
                     self.logger.info("WhatsApp Web loaded successfully")
                 except:
                     self.logger.warning("WhatsApp Web may still be loading or authentication required")
                     # Wait a bit more for manual authentication if needed
-                    page.wait_for_timeout(10000)
+                    page.wait_for_timeout(15000)
 
                 # Find all chat elements that might contain unread messages
-                chat_elements = page.query_selector_all('[data-testid="conversation"]')
+                # Using more general selectors that are likely to work
+                chat_elements = page.query_selector_all('div[role="row"]')
 
                 for chat_element in chat_elements:
                     try:
                         # Get the chat title (contact/group name)
-                        title_element = chat_element.query_selector('[data-testid="chat-list-name"]')
+                        title_element = chat_element.query_selector('div[aria-label] span, span[title], span[dir="auto"]')
                         if title_element:
                             contact_name = title_element.inner_text()
                         else:
                             contact_name = "Unknown Contact"
 
                         # Get the last message preview
-                        message_element = chat_element.query_selector('[data-testid="chat-list-preview"]')
+                        message_element = chat_element.query_selector('div[title] span, .selectable-text span')
                         if message_element:
                             message_preview = message_element.inner_text()
                         else:
                             message_preview = ""
 
-                        # Check if this chat has unread messages
-                        unread_indicator = chat_element.query_selector('[data-testid="muted"]')
-                        if unread_indicator:
+                        # Check if this chat has unread messages by looking for unread indicators
+                        # Look for elements that indicate unread messages (usually has a different style or class)
+                        unread_elements = chat_element.query_selector_all('.unread, .P68oI, [data-icon="muted"]')
+                        has_unread = len(unread_elements) > 0
+
+                        # Also check for any element with numeric content (unread count)
+                        badge_elements = chat_element.query_selector_all('span[role="button"] span, .P68oI span')
+                        has_badge = False
+                        for badge in badge_elements:
+                            text = badge.inner_text().strip()
+                            if text.isdigit() and int(text) > 0:
+                                has_badge = True
+                                break
+
+                        if has_unread or has_badge:
                             # This chat has unread messages
                             messages.append({
                                 'contact': contact_name,
@@ -77,17 +95,19 @@ class WhatsAppWatcher(BaseWatcher):
                                 'priority': self._determine_priority(message_preview)
                             })
                     except Exception as e:
+                        # More detailed error logging
                         self.logger.error(f"Error processing chat element: {e}")
                         continue
 
                 # Alternative approach: look for unread indicators more broadly
                 if not messages:
                     # Look for elements that indicate unread messages
-                    unread_chats = page.query_selector_all('div[aria-label*="unread"]:not([data-testid="muted"])')
+                    unread_chats = page.query_selector_all('.unread, [data-icon="muted"], .P68oI')
                     for unread_chat in unread_chats:
                         try:
-                            # Get the text content of the unread chat
-                            chat_text = unread_chat.inner_text()
+                            # Get the text content of the chat containing the unread indicator
+                            parent = unread_chat.query_selector('..') or unread_chat  # Get parent element
+                            chat_text = parent.inner_text() if parent else "Unread message detected"
                             messages.append({
                                 'contact': 'Unknown Contact',
                                 'message': chat_text,

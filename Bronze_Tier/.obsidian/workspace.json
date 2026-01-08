@@ -178,6 +178,7 @@
   },
   "active": "6fc65fc472ae9464",
   "lastOpenFiles": [
+    "__pycache__/base_watcher.cpython-314.pyc",
     "__pycache__/whatsapp_watcher.cpython-314.pyc",
     "__pycache__",
     "Company_Handbook.md",

@@ -1,0 +1,194 @@
+# whatsapp_watcher.py
+from playwright.sync_api import sync_playwright
+from base_watcher import BaseWatcher
+from pathlib import Path
+import json
+import time
+from datetime import datetime
+import logging
+
+
+class WhatsAppWatcher(BaseWatcher):
+    def __init__(self, vault_path: str, session_path: str, check_interval: int = 30):
+        super().__init__(vault_path, check_interval)
+        self.session_path = Path(session_path)
+        self.inbox = self.vault_path / 'Inbox'
+        self.inbox.mkdir(exist_ok=True)  # Create Inbox directory if it doesn't exist
+        self.keywords = ['urgent', 'asap', 'invoice', 'payment', 'help', 'emergency', 'critical', 'problem', 'issue']
+
+        # Set up logging
+        logging.basicConfig(level=logging.INFO)
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+    def check_for_updates(self) -> list:
+        """
+        Check WhatsApp Web for new messages and return list of new messages
+        """
+        messages = []
+        try:
+            with sync_playwright() as p:
+                # Launch WhatsApp Web with persistent context to maintain session
+                browser = p.chromium.launch_persistent_context(
+                    self.session_path,
+                    headless=False,  # Set to False so user can see and authenticate if needed
+                    viewport={'width': 1280, 'height': 800}
+                )
+                page = browser.pages[0]
+
+                # Navigate to WhatsApp Web
+                page.goto('https://web.whatsapp.com')
+
+                # Wait for WhatsApp to load and user to authenticate
+                try:
+                    page.wait_for_selector('[data-testid="chat-list"]', timeout=30000)  # Wait up to 30 seconds
+                    self.logger.info("WhatsApp Web loaded successfully")
+                except:
+                    self.logger.warning("WhatsApp Web may still be loading or authentication required")
+                    # Wait a bit more for manual authentication if needed
+                    page.wait_for_timeout(10000)
+
+                # Find all chat elements that might contain unread messages
+                chat_elements = page.query_selector_all('[data-testid="conversation"]')
+
+                for chat_element in chat_elements:
+                    try:
+                        # Get the chat title (contact/group name)
+                        title_element = chat_element.query_selector('[data-testid="chat-list-name"]')
+                        if title_element:
+                            contact_name = title_element.inner_text()
+                        else:
+                            contact_name = "Unknown Contact"
+
+                        # Get the last message preview
+                        message_element = chat_element.query_selector('[data-testid="chat-list-preview"]')
+                        if message_element:
+                            message_preview = message_element.inner_text()
+                        else:
+                            message_preview = ""
+
+                        # Check if this chat has unread messages
+                        unread_indicator = chat_element.query_selector('[data-testid="muted"]')
+                        if unread_indicator:
+                            # This chat has unread messages
+                            messages.append({
+                                'contact': contact_name,
+                                'message': message_preview,
+                                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                                'priority': self._determine_priority(message_preview)
+                            })
+                    except Exception as e:
+                        self.logger.error(f"Error processing chat element: {e}")
+                        continue
+
+                # Alternative approach: look for unread indicators more broadly
+                if not messages:
+                    # Look for elements that indicate unread messages
+                    unread_chats = page.query_selector_all('div[aria-label*="unread"]:not([data-testid="muted"])')
+                    for unread_chat in unread_chats:
+                        try:
+                            # Get the text content of the unread chat
+                            chat_text = unread_chat.inner_text()
+                            messages.append({
+                                'contact': 'Unknown Contact',
+                                'message': chat_text,
+                                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                                'priority': self._determine_priority(chat_text)
+                            })
+                        except Exception as e:
+                            self.logger.error(f"Error processing unread chat: {e}")
+                            continue
+
+                browser.close()
+
+        except Exception as e:
+            self.logger.error(f"Error checking for WhatsApp updates: {e}")
+
+        return messages
+
+    def _determine_priority(self, message_text: str) -> str:
+        """
+        Determine message priority based on keywords
+        """
+        message_lower = message_text.lower()
+
+        # High priority keywords
+        high_priority = ['urgent', 'asap', 'emergency', 'immediate', 'critical', 'help', 'problem', 'issue', 'payment']
+        medium_priority = ['soon', 'today', 'request', 'please', 'question', 'inquiry', 'details', 'meeting']
+
+        for keyword in high_priority:
+            if keyword in message_lower:
+                return 'high'
+
+        for keyword in medium_priority:
+            if keyword in message_lower:
+                return 'medium'
+
+        return 'low'
+
+    def create_action_file(self, message_data) -> Path:
+        """
+        Create .md file in Inbox folder with the message data
+        """
+        # Generate a unique filename with timestamp
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"WA_{timestamp}.md"
+        filepath = self.inbox / filename
+
+        # Create the message file content in the format specified in CLAUDE.md
+        message_content = f"""---
+type: whatsapp_message
+received: {message_data['timestamp']}
+status: pending
+priority: {message_data['priority']}
+contact: {message_data['contact']}
+---
+
+## Message
+{message_data['message']}
+"""
+
+        # Write the message to the file
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(message_content)
+
+        self.logger.info(f"Created message file: {filepath}")
+        return filepath
+
+    def run(self):
+        """
+        Override the base run method to create files in Inbox instead of Needs_Action
+        """
+        self.logger.info(f'Starting {self.__class__.__name__}')
+        while True:
+            try:
+                messages = self.check_for_updates()
+                for message in messages:
+                    self.create_action_file(message)
+                    self.logger.info(f"Processed message from {message['contact']}: {message['message'][:50]}...")
+            except Exception as e:
+                self.logger.error(f'Error in run loop: {e}')
+
+            # Wait for the specified interval before checking again
+            time.sleep(self.check_interval)
+
+
+def main():
+    """
+    Main function to run the WhatsApp Watcher
+    """
+    import sys
+
+    if len(sys.argv) != 3:
+        print("Usage: python whatsapp_watcher.py <vault_path> <session_path>")
+        print("Example: python whatsapp_watcher.py ./ /tmp/whatsapp_session")
+        sys.exit(1)
+
+    vault_path = sys.argv[1]
+    session_path = sys.argv[2]
+
+    watcher = WhatsAppWatcher(vault_path, session_path)
+    watcher.run()
+
+
+if __name__ == "__main__":
+    main()

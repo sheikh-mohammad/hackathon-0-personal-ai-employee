@@ -34,15 +34,11 @@ class WhatsAppWatcher(BaseWatcher):
                     '--no-sandbox'
                 ]
 
-                # Add user data directory if specified
+                # Launch with existing profile if user data dir is specified
                 if self.chrome_user_data_dir:
-                    args.extend([
-                        f'--user-data-dir={self.chrome_user_data_dir.absolute()}',
-                        '--profile-directory=Default'  # You can change this if needed (Profile 1, Profile 2, etc.)
-                    ])
-                    # Launch with existing profile
+                    # Launch with existing Chrome profile - pass user data dir directly as first parameter
                     browser = p.chromium.launch_persistent_context(
-                        '',  # Empty string when using existing profile
+                        self.chrome_user_data_dir,  # Pass user data dir directly as the first parameter
                         headless=False,  # Set to False so user can see and authenticate if needed
                         viewport={'width': 1280, 'height': 800},
                         args=args

@@ -23,5 +23,14 @@ path: Needs_Action
 status: pending
 ```
 
-## Recent Activity
-- No emails processed yet
+## Activity Log
+- No recent activity yet
+
+## Recently Completed
+<!-- path: ./Done -->
+
+## System Health
+
+- Gmail Watcher: 🟢 Running
+- Claude Code: 🟢 Connected
+- Vault Status: 🟢 OK

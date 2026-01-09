@@ -1,4 +1,4 @@
-# WhatsApp Messages Analyzer Dashboard
+# AI Employee Dashboard
 
 ## AI Status
 - State: Active
@@ -6,8 +6,22 @@
 - Autonomy Level: Bronze (Read & Suggest Only)
 - Last Check: (Claude updates this)
 
-## Pending Messages
-- 0 messages pending
+## Updatetion
+_Last updated: {{date}}_
+
+---
+
+## Inbox Status
+- Unread important emails: **0**
+- Emails requiring action: **0**
+
+---
+
+## Needs Action
+```tasks
+path: Needs_Action
+status: pending
+```
 
 ## Recent Activity
-- No messages processed yet
+- No emails processed yet

@@ -1,6 +1,6 @@
 # gmail_watcher.py
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
+from google.oauth2.credentials import Credentials # type: ignore
+from googleapiclient.discovery import build # type: ignore
 from base_watcher import BaseWatcher
 from datetime import datetime
 
@@ -19,7 +19,7 @@ class GmailWatcher(BaseWatcher):
         messages = results.get('messages', [])
         return [m for m in messages if m['id'] not in self.processed_ids]
     
-    def create_action_file(self, message) -> Path:
+    def create_action_file(self, message) -> Path: # type: ignore
         msg = self.service.users().messages().get(
             userId='me', id=message['id']
         ).execute()

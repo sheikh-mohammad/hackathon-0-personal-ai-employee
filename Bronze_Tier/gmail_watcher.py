@@ -1,9 +1,6 @@
 # gmail_watcher.py
 import time
 import logging
-import subprocess
-import threading
-import os
 from pathlib import Path
 from datetime import datetime
 
@@ -30,27 +27,18 @@ class GmailWatcher(BaseWatcher):
         self.logger = logging.getLogger(self.__class__.__name__)
 
         # Load credentials and build service
-        # First check for token.json (user credentials), fall back to credentials.json (client credentials)
-        token_path = "token.json"
-        if os.path.exists(token_path):
-            # Use existing user credentials from token.json
-            try:
-                self.creds = Credentials.from_authorized_user_file(token_path)
-                self.service = build('gmail', 'v1', credentials=self.creds)
-            except RefreshError:
-                self.logger.error("Credentials have expired or are invalid. Please re-authenticate.")
-                raise
-        else:
-            # No token.json exists, need to authenticate first
-            self.logger.error(f"Token file not found: {token_path}")
-            self.logger.error("Please run authenticate_gmail.py first to create the token.json file.")
-            raise FileNotFoundError(f"Please run 'python authenticate_gmail.py' to authenticate with Gmail API first.")
+        try:
+            self.creds = Credentials.from_authorized_user_file(credentials_path)
+            self.service = build('gmail', 'v1', credentials=self.creds)
+        except FileNotFoundError:
+            self.logger.error(f"Credentials file not found: {credentials_path}")
+            raise
+        except RefreshError:
+            self.logger.error("Credentials have expired or are invalid. Please re-authenticate.")
+            raise
 
         # Track processed email IDs to prevent duplicates
         self.processed_ids = set()
-
-        # Start Claude Code with ccr on initialization
-        self.start_claude_code()
 
     def check_for_updates(self) -> list:
         """Check for new unread important emails"""
@@ -160,47 +148,6 @@ status: pending
 
         return 'normal'
 
-    def start_claude_code(self):
-        """Start Claude Code using ccr in a separate Git Bash terminal with 'start' prompt"""
-        try:
-            # Start Claude Code in a separate thread to avoid blocking
-            claude_thread = threading.Thread(target=self._launch_claude_code, daemon=True)
-            claude_thread.start()
-            self.logger.info("Started Claude Code launcher thread")
-        except Exception as e:
-            self.logger.error(f"Error starting Claude Code: {e}")
-
-    def _launch_claude_code(self):
-        """Private method to launch Claude Code with ccr"""
-        try:
-            # For Windows, use subprocess to open a new Git Bash window running ccr
-            # The user will need to manually type 'start' when Claude Code initializes
-            subprocess.Popen([
-                'start', 'git-bash', '-c', f'cd "{self.vault_path}" && ccr; exec bash'
-            ], shell=True)
-
-            self.logger.info("Launched Claude Code with ccr in Git Bash - please type 'start' to begin")
-
-            # Optionally, we could create a note to remind the user to type 'start'
-            reminder_file = self.vault_path / 'claude_start_reminder.md'
-            reminder_content = f"""---
-created: {datetime.now().isoformat()}
-type: system_note
----
-
-# Claude Code Started
-Claude Code has been launched via the Gmail Watcher.
-Please switch to the Claude Code terminal and type:
-```
-start
-```
-to begin the workflow.
-"""
-            reminder_file.write_text(reminder_content)
-
-        except Exception as e:
-            self.logger.error(f"Error launching Claude Code: {e}")
-
     def run(self):
         """Override run method with better error handling"""
         self.logger.info(f'Starting {self.__class__.__name__}')
@@ -209,11 +156,6 @@ to begin the workflow.
                 items = self.check_for_updates()
                 for item in items:
                     self.create_action_file(item)
-
-                # If new emails were found, trigger Claude Code again
-                if items:
-                    self.logger.info(f"New emails processed, triggering Claude Code again")
-                    self.start_claude_code()
             except KeyboardInterrupt:
                 self.logger.info("Gmail Watcher stopped by user")
                 break

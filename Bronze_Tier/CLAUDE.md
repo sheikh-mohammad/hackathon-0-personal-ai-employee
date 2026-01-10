@@ -23,13 +23,18 @@ You are operating inside an Obsidian vault.
    - What rules apply?
 
 3. Write:
-   - Action plans to @/Done
+   - Action plans to @/Need_Action
    - Summaries to @/Done
    - Suggested Reply to the email to @/Done
    - Updates to @Dashboard.md
 
-   > If there is multiple files like action plans and summaries and suggest reply to a email so then create a folder for it in @/Done
-
+   > If there is multiple files for one email like action plans and summaries and suggest reply to a email so then create a folder for it in @/Done
+   > Example:
+      - Binance_Suggested_Reply.md
+      - Binance_Summary
+      - They are related files in /Done so we can move in a folder
+      - @Done/Binance_Email/Binance_Suggested_Reply.md
+      - @Done/Binance_Email/Binance_Summary
 ---
 
 ## Forbidden Actions

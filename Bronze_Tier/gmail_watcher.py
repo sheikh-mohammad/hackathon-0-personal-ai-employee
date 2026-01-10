@@ -1,6 +1,8 @@
 # gmail_watcher.py
 import time
 import logging
+import subprocess
+import threading
 from pathlib import Path
 from datetime import datetime
 
@@ -39,6 +41,9 @@ class GmailWatcher(BaseWatcher):
 
         # Track processed email IDs to prevent duplicates
         self.processed_ids = set()
+
+        # Start Claude Code with ccr on initialization
+        self.start_claude_code()
 
     def check_for_updates(self) -> list:
         """Check for new unread important emails"""
@@ -148,6 +153,47 @@ status: pending
 
         return 'normal'
 
+    def start_claude_code(self):
+        """Start Claude Code using ccr in a separate Git Bash terminal with 'start' prompt"""
+        try:
+            # Start Claude Code in a separate thread to avoid blocking
+            claude_thread = threading.Thread(target=self._launch_claude_code, daemon=True)
+            claude_thread.start()
+            self.logger.info("Started Claude Code launcher thread")
+        except Exception as e:
+            self.logger.error(f"Error starting Claude Code: {e}")
+
+    def _launch_claude_code(self):
+        """Private method to launch Claude Code with ccr"""
+        try:
+            # For Windows, use subprocess to open a new Git Bash window running ccr
+            # The user will need to manually type 'start' when Claude Code initializes
+            subprocess.Popen([
+                'start', 'git-bash', '-c', f'cd "{self.vault_path}" && ccr; exec bash'
+            ], shell=True)
+
+            self.logger.info("Launched Claude Code with ccr in Git Bash - please type 'start' to begin")
+
+            # Optionally, we could create a note to remind the user to type 'start'
+            reminder_file = self.vault_path / 'claude_start_reminder.md'
+            reminder_content = f"""---
+created: {datetime.now().isoformat()}
+type: system_note
+---
+
+# Claude Code Started
+Claude Code has been launched via the Gmail Watcher.
+Please switch to the Claude Code terminal and type:
+```
+start
+```
+to begin the workflow.
+"""
+            reminder_file.write_text(reminder_content)
+
+        except Exception as e:
+            self.logger.error(f"Error launching Claude Code: {e}")
+
     def run(self):
         """Override run method with better error handling"""
         self.logger.info(f'Starting {self.__class__.__name__}')
@@ -156,6 +202,11 @@ status: pending
                 items = self.check_for_updates()
                 for item in items:
                     self.create_action_file(item)
+
+                # If new emails were found, trigger Claude Code again
+                if items:
+                    self.logger.info(f"New emails processed, triggering Claude Code again")
+                    self.start_claude_code()
             except KeyboardInterrupt:
                 self.logger.info("Gmail Watcher stopped by user")
                 break

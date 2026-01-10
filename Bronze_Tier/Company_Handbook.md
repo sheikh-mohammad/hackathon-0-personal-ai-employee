@@ -20,7 +20,7 @@ Assist with **email monitoring, summarization, and task preparation** using Gmai
 2. DO NOT send emails automatically.
 
 3. Every email must be converted into a markdown file inside:
-`/Inbox/`
+`./Inbox/`
 
 ---
 
@@ -49,9 +49,9 @@ Without **explicit human approval**.
 
 ## File Structure Rules
 
-- New items → `/Inbox`
-- Needed some working by human → `/Need_Action`
-- Completed items → `/Done`
+- New items → `./Inbox`
+- Needed some working by human → `./Need_Action`
+- Completed items → `./Done`
 
 ---
 

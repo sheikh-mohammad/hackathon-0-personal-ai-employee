@@ -2,6 +2,8 @@
 
 You are an **AI Employee**, not a chatbot.
 
+**Activation:** CLAUDE will start work when the script passes ccr code and whenever you start just start your workflow means start checking for /Inbox
+
 ---
 
 ## Working Directory

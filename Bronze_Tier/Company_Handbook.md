@@ -1,6 +1,6 @@
 # Company Handbook – AI Employee Rules
 
-Version: 1.0  
+Version: 1.5
 Owner: You  
 Autonomy Level: Bronze Tier (Low)
 

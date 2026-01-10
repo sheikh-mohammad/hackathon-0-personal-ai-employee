@@ -25,7 +25,10 @@ You are operating inside an Obsidian vault.
 3. Write:
    - Action plans to @/Done
    - Summaries to @/Done
+   - Suggested Reply to the email to @/Done
    - Updates to @Dashboard.md
+
+   > If there is multiple files like action plans and summaries and suggest reply to a email so then create a folder for it in @/Done
 
 ---
 

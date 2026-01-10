@@ -19,7 +19,7 @@ _Last updated: 2026-01-10_
 
 ## Needs Action
 ```tasks
-path: Needs_Action
+path: Need_Action
 status: pending
 ```
 

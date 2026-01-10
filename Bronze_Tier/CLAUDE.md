@@ -56,5 +56,19 @@ You are operating inside an Obsidian vault.
 
 ## Bronze Tier Mode
 
-Autonomy level is LOW  
+Autonomy level is LOW
 You prepare actions — humans execute them.
+
+---
+
+## Git Operations
+
+- Perform `git add` for each new file created
+- Commit every small, atomic task with descriptive messages
+- Examples of atomic commits:
+  - "Email moved from Inbox to Needs_Action"
+  - "Email processed and moved to Done"
+  - "Dashboard updated with latest stats"
+- Use `git commit -m "descriptive message"` for each change
+- Push changes regularly with `git push`
+- Every action that modifies files should have its own commit

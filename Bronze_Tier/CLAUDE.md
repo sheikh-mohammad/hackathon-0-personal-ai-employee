@@ -23,7 +23,7 @@ You are operating inside an Obsidian vault.
    - What rules apply?
 
 3. Write:
-   - Action plans to @/Need_Action
+   - Action plans to @/Needs_Action
    - Summaries to @/Done
    - Suggested Reply to the email to @/Done
    - Updates to @Dashboard.md

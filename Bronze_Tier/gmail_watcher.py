@@ -2,11 +2,18 @@
 import time
 import logging
 from pathlib import Path
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
-from google.auth.exceptions import RefreshError
-from base_watcher import BaseWatcher
 from datetime import datetime
+
+# Import Google API libraries with error handling
+try:
+    from google.oauth2.credentials import Credentials
+    from googleapiclient.discovery import build
+    from google.auth.exceptions import RefreshError
+except ImportError as e:
+    print(f"Google API libraries not installed. Please install: pip install google-api-python-client google-auth")
+    raise e
+
+from base_watcher import BaseWatcher
 
 
 class GmailWatcher(BaseWatcher):

@@ -3,6 +3,7 @@ import time
 import logging
 import subprocess
 import threading
+import os
 from pathlib import Path
 from datetime import datetime
 
@@ -29,15 +30,21 @@ class GmailWatcher(BaseWatcher):
         self.logger = logging.getLogger(self.__class__.__name__)
 
         # Load credentials and build service
-        try:
-            self.creds = Credentials.from_authorized_user_file(credentials_path)
-            self.service = build('gmail', 'v1', credentials=self.creds)
-        except FileNotFoundError:
-            self.logger.error(f"Credentials file not found: {credentials_path}")
-            raise
-        except RefreshError:
-            self.logger.error("Credentials have expired or are invalid. Please re-authenticate.")
-            raise
+        # First check for token.json (user credentials), fall back to credentials.json (client credentials)
+        token_path = "token.json"
+        if os.path.exists(token_path):
+            # Use existing user credentials from token.json
+            try:
+                self.creds = Credentials.from_authorized_user_file(token_path)
+                self.service = build('gmail', 'v1', credentials=self.creds)
+            except RefreshError:
+                self.logger.error("Credentials have expired or are invalid. Please re-authenticate.")
+                raise
+        else:
+            # No token.json exists, need to authenticate first
+            self.logger.error(f"Token file not found: {token_path}")
+            self.logger.error("Please run authenticate_gmail.py first to create the token.json file.")
+            raise FileNotFoundError(f"Please run 'python authenticate_gmail.py' to authenticate with Gmail API first.")
 
         # Track processed email IDs to prevent duplicates
         self.processed_ids = set()

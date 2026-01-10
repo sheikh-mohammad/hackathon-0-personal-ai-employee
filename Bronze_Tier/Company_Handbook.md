@@ -50,7 +50,7 @@ Without **explicit human approval**.
 ## File Structure Rules
 
 - New items → `./Inbox`
-- Needed some working by human → `./Need_Action`
+- Needed some working by human → `./Needs_Action`
 - Completed items → `./Done`
 
 ---

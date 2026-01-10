@@ -11,22 +11,22 @@ class GmailWatcher(BaseWatcher):
         self.creds = Credentials.from_authorized_user_file(credentials_path)
         self.service = build('gmail', 'v1', credentials=self.creds)
         self.processed_ids = set()
-
+        
     def check_for_updates(self) -> list:
         results = self.service.users().messages().list(
             userId='me', q='is:unread is:important'
         ).execute()
         messages = results.get('messages', [])
         return [m for m in messages if m['id'] not in self.processed_ids]
-
+    
     def create_action_file(self, message) -> Path: # type: ignore
         msg = self.service.users().messages().get(
             userId='me', id=message['id']
         ).execute()
-
+        
         # Extract headers
         headers = {h['name']: h['value'] for h in msg['payload']['headers']}
-
+        
         content = f'''---
 type: email
 from: {headers.get('From', 'Unknown')}

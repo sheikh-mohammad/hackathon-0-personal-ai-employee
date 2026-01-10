@@ -11,17 +11,17 @@ class BaseWatcher(ABC):
         self.needs_action = self.vault_path / 'Needs_Action'
         self.check_interval = check_interval
         self.logger = logging.getLogger(self.__class__.__name__)
-
+        
     @abstractmethod
     def check_for_updates(self) -> list:
         '''Return list of new items to process'''
         pass
-
+    
     @abstractmethod
     def create_action_file(self, item) -> Path:
         '''Create .md file in Needs_Action folder'''
         pass
-
+    
     def run(self):
         self.logger.info(f'Starting {self.__class__.__name__}')
         while True:

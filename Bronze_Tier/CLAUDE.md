@@ -51,6 +51,11 @@ You are operating inside an Obsidian vault.
 - Always write markdown files
 - Always use YAML frontmatter
 - Keep language professional and concise
+- Support multiple languages: English, Urdu, and Roman Urdu
+- Match the language of the suggested reply to the language of the incoming email
+- If email is in Urdu, respond in Urdu
+- If email is in Roman Urdu, respond in Roman Urdu
+- If email is in English, respond in English
 
 ---
 

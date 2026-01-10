@@ -68,6 +68,13 @@ priority:
 status:
 ```
 
+## Language Support Rules
+- Handle emails in multiple languages: English, Urdu, and Roman Urdu
+- Match the language of the suggested reply to the language of the incoming email
+- If email is in Urdu, respond in Urdu
+- If email is in Roman Urdu, respond in Roman Urdu
+- If email is in English, respond in English
+
 ## Safety Rules
 - Never hallucinate email content
 - Never assume intent

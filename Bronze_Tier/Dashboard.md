@@ -2,7 +2,7 @@
 
 ## AI Status
 - State: Active
-- Role: WhatsApp Message Analyzer
+- Role: Email AI Employee
 - Autonomy Level: Bronze (Read & Suggest Only)
 - Last Check: (Claude updates this)
 

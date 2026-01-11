@@ -58,7 +58,7 @@ class GmailWatcher(BaseWatcher):
                     msg_details = self.service.users().messages().get(
                         userId='me',
                         id=message['id'],
-                        format='minimal'  # Use minimal format for efficiency
+                        format='full'  # Use full format to get headers
                     ).execute()
 
                     # Add to new messages if it passes all checks
@@ -171,11 +171,11 @@ status: pending
 if __name__ == "__main__":
     # Example usage - adjust paths as needed
     VAULT_PATH = "."  # Current directory as vault
-    CREDENTIALS_PATH = "credentials.json"  # Path to Gmail API credentials
+    CREDENTIALS_PATH = "token.json"  # Path to Gmail API authorized user credentials
 
     try:
         watcher = GmailWatcher(VAULT_PATH, CREDENTIALS_PATH)
         watcher.run()
     except Exception as e:
         print(f"Failed to start Gmail Watcher: {e}")
-        print("Make sure you have valid Gmail API credentials in credentials.json")
+        print("Make sure you have valid Gmail API credentials in token.json")

@@ -38,7 +38,8 @@ class GmailWatcher(BaseWatcher):
             raise
 
         # Track processed email IDs to prevent duplicates
-        self.processed_ids = set()
+        self.processed_ids_file = self.vault_path / '.gmail_processed_ids'
+        self.processed_ids = self._load_processed_ids()
 
     def check_for_updates(self) -> list:
         """Check for new unread important emails"""
@@ -119,6 +120,7 @@ status: pending
 
             # Add to processed IDs to prevent duplicate processing
             self.processed_ids.add(message_id)
+            self._save_processed_ids()
 
             self.logger.info(f"Created action file: {filepath}")
             return filepath
@@ -147,6 +149,27 @@ status: pending
                 return 'high'
 
         return 'normal'
+
+    def _load_processed_ids(self):
+        """Load processed email IDs from file to prevent duplicate processing across runs"""
+        if self.processed_ids_file.exists():
+            try:
+                content = self.processed_ids_file.read_text(encoding='utf-8').strip()
+                if content:
+                    return set(content.splitlines())
+                else:
+                    return set()
+            except Exception as e:
+                self.logger.error(f"Error loading processed IDs: {e}")
+                return set()
+        return set()
+
+    def _save_processed_ids(self):
+        """Save processed email IDs to file"""
+        try:
+            self.processed_ids_file.write_text('\n'.join(sorted(self.processed_ids)), encoding='utf-8')
+        except Exception as e:
+            self.logger.error(f"Error saving processed IDs: {e}")
 
     def run(self):
         """Override run method with better error handling"""

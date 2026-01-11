@@ -1,8 +1,8 @@
 ---
 type: email
-from: Unknown
-subject: No Subject
-received: 2026-01-10T18:01:24.156859
+from: Binance <do-not-reply@ses.binance.com>
+subject: [Binance] Request For Information Overdue - 2025-08-19 17;23;17 (UTC)
+received: 2026-01-11T17:35:27.323972
 priority: high
 status: pending
 ---

@@ -1,8 +1,8 @@
 ---
 type: email
-from: Unknown
-subject: No Subject
-received: 2026-01-10T18:01:24.148561
+from: "n8n.io" <noreply@transactional.n8n.io>
+subject: Verify your n8n account
+received: 2026-01-11T17:35:27.316125
 priority: normal
 status: pending
 ---

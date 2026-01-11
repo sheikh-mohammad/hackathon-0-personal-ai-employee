@@ -1,8 +1,8 @@
 ---
 type: email
-from: Unknown
-subject: No Subject
-received: 2026-01-10T18:01:24.154977
+from: Bitwarden <no-reply@bitwarden.com>
+subject: Verify Your Email
+received: 2026-01-11T17:35:27.322195
 priority: normal
 status: pending
 ---

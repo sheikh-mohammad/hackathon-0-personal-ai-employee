@@ -1,8 +1,8 @@
 ---
 type: email
-from: Unknown
-subject: No Subject
-received: 2026-01-10T18:01:24.150472
+from: Apple <appleid@id.apple.com>
+subject: Verify your email address
+received: 2026-01-11T17:35:27.318298
 priority: normal
 status: pending
 ---

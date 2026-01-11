@@ -68,3 +68,6 @@ secret*.json
 config.json
 settings.json
 local.properties
+
+# Application state files
+.gmail_processed_ids
